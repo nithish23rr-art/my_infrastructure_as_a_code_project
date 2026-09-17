@@ -1,13 +1,13 @@
 ---
--name: configure and start nginx web server
- hosts: webservers
- become: true
+- name: configure and start nginx web server
+  hosts: webservers
+  become: true
 
- tasks:
-   - name: ensure nginx is installed
-     ansible.builtin.apt:
-       name: nginx
-       state: present
+  tasks:
+    - name: ensure nginx is installed
+      ansible.builtin.apt:
+        name: nginx
+        state: present
 
     - name: ensure nginx is running
       ansible.builtin.service:
