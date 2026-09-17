@@ -5,12 +5,12 @@
   become: true
 
   vars:
-    app_user: "deployer"
+    app_user: deployer
     app_packages:
       - nginx
       - git
       - curl
-    service_name: "nginx"
+    service_name: nginx
 
   pre_tasks:
     - name: Update apt repository cache
@@ -28,26 +28,37 @@
 
     - name: Install application core packages
       ansible.builtin.apt:
-        name: "{{ item }}"
+        name: "{{ app_packages }}"
         state: present
-      loop: "{{ app_packages }}"
       notify: Restart web service
 
     - name: Deploy application configuration files
       block:
+        - name: Ensure web root directory exists
+          ansible.builtin.file:
+            path: /var/www/html
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+
         - name: Write HTML index page
           ansible.builtin.copy:
             dest: /var/www/html/index.html
             content: |
               Welcome to the manager of the web server!
-              Hostname: {{ ansible_hostname }}
-              IP address: {{ ansible_default_ipv4.address }}
-            mode: '0644'
+              Hostname: {{ ansible_hostname | default('unknown') }}
+              IP address: {{ ansible_default_ipv4.address | default('unknown') }}
+            owner: root
+            group: root
+            mode: "0644"
           notify: Restart web service
+
       rescue:
         - name: Log configuration failure
           ansible.builtin.debug:
-            msg: "Failed to deploy configuration files; exiting rescue stage."
+            msg: "Failed to deploy configuration files; entering rescue stage."
+
       always:
         - name: Run cleanup or audit logging tasks
           ansible.builtin.debug:
@@ -55,7 +66,6 @@
 
   handlers:
     - name: Restart web service
-      ansible.builtin.systemd:
+      ansible.builtin.service:
         name: "{{ service_name }}"
         state: restarted
-...
