@@ -5,7 +5,7 @@ resource "aws_instance" "web_server" {
   ami           = "ami-04ccd752e0917a978"
   instance_type = "t2.micro"
   count         = 1
-
+  key_name      = "my-key-data"
 
  tags = {
     Name = "ExampleInstance"
