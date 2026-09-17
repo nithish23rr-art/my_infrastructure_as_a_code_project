@@ -8,7 +8,7 @@ resource "aws_instance" "web_server" {
   key_name      = "my-key-data"
 
  tags = {
-    Name = "ExampleInstance"
+    Name = "nitish-web-server"
   }
 
 }
