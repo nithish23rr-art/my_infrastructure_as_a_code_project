@@ -1,2 +1,2 @@
 [webservers]
-15.135.55.131 ansible_user=admin  ansible_private_key_file=nithish2580.pem
+15.135.55.131 ansible_user=admin  ansible_ssh_private_key_file=nithish2580.pem
