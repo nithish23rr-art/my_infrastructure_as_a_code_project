@@ -1,5 +1,5 @@
 ---
-- name: Comprehensive enterprise web server configuration
+- name: Configure and start nginx web server
   hosts: webservers
   gather_facts: true
   become: true
@@ -13,6 +13,12 @@
     service_name: nginx
 
   pre_tasks:
+    - name: Verify that the target uses a Debian-family distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Debian'
+        fail_msg: "This playbook uses apt and supports Debian-family distributions only."
+
     - name: Update apt repository cache
       ansible.builtin.apt:
         update_cache: true
@@ -26,43 +32,36 @@
         shell: /bin/bash
         system: true
 
-    - name: Install application core packages
+    - name: Install application packages
       ansible.builtin.apt:
         name: "{{ app_packages }}"
         state: present
+
+    - name: Ensure the web root directory exists
+      ansible.builtin.file:
+        path: /var/www/html
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Write HTML index page
+      ansible.builtin.copy:
+        dest: /var/www/html/index.html
+        content: |
+          Welcome to the manager of the web server!
+          Hostname: {{ ansible_hostname | default('unknown') }}
+          IP address: {{ ansible_default_ipv4.address | default('unknown') }}
+        owner: root
+        group: root
+        mode: "0644"
       notify: Restart web service
 
-    - name: Deploy application configuration files
-      block:
-        - name: Ensure web root directory exists
-          ansible.builtin.file:
-            path: /var/www/html
-            state: directory
-            owner: root
-            group: root
-            mode: "0755"
-
-        - name: Write HTML index page
-          ansible.builtin.copy:
-            dest: /var/www/html/index.html
-            content: |
-              Welcome to the manager of the web server!
-              Hostname: {{ ansible_hostname | default('unknown') }}
-              IP address: {{ ansible_default_ipv4.address | default('unknown') }}
-            owner: root
-            group: root
-            mode: "0644"
-          notify: Restart web service
-
-      rescue:
-        - name: Log configuration failure
-          ansible.builtin.debug:
-            msg: "Failed to deploy configuration files; entering rescue stage."
-
-      always:
-        - name: Run cleanup or audit logging tasks
-          ansible.builtin.debug:
-            msg: "Finished configuration block attempt for {{ service_name }}."
+    - name: Ensure nginx is started and enabled
+      ansible.builtin.service:
+        name: "{{ service_name }}"
+        state: started
+        enabled: true
 
   handlers:
     - name: Restart web service
