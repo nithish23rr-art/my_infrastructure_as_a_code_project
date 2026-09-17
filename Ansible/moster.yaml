@@ -1,66 +1,61 @@
 ---
--name: comprehensive enterprise web server configuration
- hosts: webservers
- gather_facts: true
- become: true
+- name: Comprehensive enterprise web server configuration
+  hosts: webservers
+  gather_facts: true
+  become: true
 
- vars:
- app_user: "deployer"
- app_pakage:
-    - name: "nginx"
-    - name: "git"
-    - name: "curl"
+  vars:
+    app_user: "deployer"
+    app_packages:
+      - nginx
+      - git
+      - curl
+    service_name: "nginx"
 
-    service_name:
-      - name: "nginx"
+  pre_tasks:
+    - name: Update apt repository cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
 
-      pre_tasks:
-        - name: update apt repo cache
-          ansible.builtin.apt:
-            update_cache: yes
-            cache_valid_time: 3600
+  tasks:
+    - name: Create application system user
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        state: present
+        shell: /bin/bash
+        system: true
 
-tasks:
-  - name: create application system user
-    ansible.builtin.user:
-      name: "{{ app_user }}"
-      state: present
-      shell: /bin/bash
-      system: yes
+    - name: Install application core packages
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ app_packages }}"
+      notify: Restart web service
 
-  - name: create application core packages
-    ansible.builtin.apt:
-      name: "{{ item.name }}"
-      state: present
-    loop: "{{ app_pakage }}"
-    notify: restart service
-
-  - name: deploy application configuration files
-    ansible.builtin.template:
-    bloke:
-    -name: write html index page
-      ansible.builtin.template:
-        src: templates/index.html
-        ansible.builtin.copy:
-        dest: /var/www/html/index.html
-         contevt:|
-         welcome to the manager of the web server!
-         hostname: {{ ansible_hostname }}
-         ip address: {{ ansible_default_ipv4.address }}
-         mode: '0644'
-         rescue:
-         -name:log confriguration failed
+    - name: Deploy application configuration files
+      block:
+        - name: Write HTML index page
+          ansible.builtin.copy:
+            dest: /var/www/html/index.html
+            content: |
+              Welcome to the manager of the web server!
+              Hostname: {{ ansible_hostname }}
+              IP address: {{ ansible_default_ipv4.address }}
+            mode: '0644'
+          notify: Restart web service
+      rescue:
+        - name: Log configuration failure
           ansible.builtin.debug:
-            msg: "Failed to deploy configuration files,exiting rescue stage."
-            always: 
-            name: always run cleanup or audit logging tasks
-            ansible.builtin.debug:
-              msg: "finished bloke attempt for {{service_name}} configuration."
-       handler:
-      - name: restart service
-      ansible.builtin.systemd:
-      name:"{{service_name  }}" 
-      state: restarted 
- ...    
+            msg: "Failed to deploy configuration files; exiting rescue stage."
+      always:
+        - name: Run cleanup or audit logging tasks
+          ansible.builtin.debug:
+            msg: "Finished configuration block attempt for {{ service_name }}."
 
-       
+  handlers:
+    - name: Restart web service
+      ansible.builtin.systemd:
+        name: "{{ service_name }}"
+        state: restarted
+...
